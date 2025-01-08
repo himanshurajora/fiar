@@ -16,6 +16,9 @@ const nameModal = document.getElementById('nameModal');
 const playerNameInput = document.getElementById('playerName');
 const startGameBtn = document.getElementById('startGame');
 const playerNameDisplay = document.getElementById('playerName');
+const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+const roomCodeText = document.getElementById('roomCodeText');
+const copyButton = document.getElementById('copyButton');
 
 // Game Configuration
 const config = {
@@ -71,11 +74,11 @@ playerNameInput.value = localStorage.getItem('playerName') || '';
 socket.on('roomCreated', (roomId) => {
     currentRoom = roomId;
     playerColor = 'player1';
-    roomCodeSpan.textContent = `Room Code: ${roomId}`;
     showGame(roomId);
 });
 
 socket.on('playerJoined', () => {
+    roomCodeDisplay.classList.add('hidden');
     showNameModal();
 });
 
@@ -88,7 +91,8 @@ socket.on('joinRoom', (roomId) => {
 
 socket.on('gameStart', ({ player1, player2, names }) => {
     menuDiv.style.display = 'none';
-    gameContainer.style.display = 'block';
+    gameContainer.classList.remove('hidden');
+    roomCodeDisplay.classList.add('hidden');
     if (!game) {
         game = new Phaser.Game(config);
     }
@@ -141,9 +145,13 @@ socket.on('moveMade', ({ row, column, playerId }) => {
 });
 
 socket.on('gameWon', (winnerId) => {
-    const message = winnerId === socket.id ? 'You won!' : 'You lost!';
-    alert(message);
-    resetGame();
+    const isWinner = winnerId === socket.id;
+    const message = isWinner ? 'You won!' : 'You lost!';
+    celebrate(isWinner);
+    setTimeout(() => {
+        alert(message);
+        resetGame();
+    }, 2000);
 });
 
 socket.on('playerDisconnected', () => {
@@ -157,8 +165,10 @@ socket.on('joinError', (message) => {
 
 function showGame(roomId) {
     menuDiv.style.display = 'none';
-    gameContainer.style.display = 'block';
-    roomCodeSpan.textContent = `Room: ${roomId}`;
+    gameContainer.classList.remove('hidden');
+    if (playerColor === 'player1') {
+        showRoomCode(roomId);
+    }
 }
 
 function updateTurnDisplay(names) {
@@ -239,4 +249,73 @@ function drawBoard() {
 
 function dropDisc(row, column, color) {
     board[row][column] = color;
+}
+
+// Add copy button functionality
+copyButton.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(currentRoom);
+    copyButton.classList.add('copied');
+    setTimeout(() => copyButton.classList.remove('copied'), 2000);
+});
+
+// Add celebration animations
+function celebrate(isWinner) {
+    if (isWinner) {
+        // Fire multiple confetti bursts
+        const duration = 3000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+        function randomInRange(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        const interval = setInterval(() => {
+            const timeLeft = animationEnd - Date.now();
+            if (timeLeft <= 0) {
+                return clearInterval(interval);
+            }
+
+            const particleCount = 50 * (timeLeft / duration);
+            confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+            });
+            confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+            });
+        }, 250);
+    } else {
+        // Create heartbreak effect
+        const hearts = 15;
+        const defaults = { startVelocity: 15, spread: 360, ticks: 60, zIndex: 0 };
+        
+        for (let i = 0; i < hearts; i++) {
+            confetti({
+                ...defaults,
+                shapes: ['heart'],
+                particleCount: 1,
+                scalar: 2,
+                origin: { x: Math.random(), y: Math.random() - 0.2 },
+                colors: ['#ff0000']
+            });
+        }
+    }
+}
+
+function showRoomCode(roomId) {
+    roomCodeDisplay.classList.remove('hidden');
+    roomCodeText.textContent = roomId;
+    
+    // Close on click outside
+    const closeOnClick = (e) => {
+        if (e.target === roomCodeDisplay) {
+            roomCodeDisplay.classList.add('hidden');
+            roomCodeDisplay.removeEventListener('click', closeOnClick);
+        }
+    };
+    roomCodeDisplay.addEventListener('click', closeOnClick);
 } 
