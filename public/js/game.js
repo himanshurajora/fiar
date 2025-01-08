@@ -18,7 +18,7 @@ const config = {
     parent: 'gameContainer',
     width: 700,
     height: 600,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: '#2563eb',
     scene: {
         preload: preload,
         create: create
@@ -33,8 +33,8 @@ let board = Array(6).fill().map(() => Array(7).fill(null));
 let discs = [];
 const CELL_SIZE = 100;
 const COLORS = {
-    player1: 0xff0000, // Red
-    player2: 0xffff00  // Yellow
+    player1: 0xff4444, // Brighter Red
+    player2: 0xffff44  // Brighter Yellow
 };
 
 // Event Listeners
@@ -72,16 +72,31 @@ socket.on('moveMade', ({ row, column, playerId }) => {
     const finalY = row * CELL_SIZE + CELL_SIZE/2;
     const x = column * CELL_SIZE + CELL_SIZE/2;
     
-    // Create disc at top
-    const disc = gameScene.add.circle(x, 0, CELL_SIZE/2 - 10, color);
-    discs.push(disc);
+    // Create disc with 3D effect
+    const discGroup = gameScene.add.container(x, 0);
     
-    // Animate fall
+    // Disc shadow
+    const shadow = gameScene.add.circle(3, 3, CELL_SIZE/2 - 12, 0x000000, 0.3);
+    
+    // Main disc
+    const disc = gameScene.add.circle(0, 0, CELL_SIZE/2 - 12, color);
+    
+    // Highlight for 3D effect
+    const highlight = gameScene.add.circle(-8, -8, CELL_SIZE/2 - 20, 0xffffff, 0.3);
+    
+    discGroup.add([shadow, disc, highlight]);
+    discs.push(discGroup);
+    
+    // Animate fall with bounce
     gameScene.tweens.add({
-        targets: disc,
+        targets: discGroup,
         y: finalY,
         duration: 500,
-        ease: 'Bounce.easeOut'
+        ease: 'Bounce.easeOut',
+        onUpdate: () => {
+            // Rotate slightly during fall
+            discGroup.rotation += 0.01;
+        }
     });
     
     board[row][column] = color;
@@ -153,20 +168,33 @@ function create() {
 
 function drawBoard() {
     graphics.clear();
-    graphics.lineStyle(2, 0x0000ff);
-    graphics.fillStyle(0x0000ff);
     
-    // Draw board background
+    // Draw board shadow
+    graphics.fillStyle(0x1e40af);
+    graphics.fillRect(10, 10, 700, 600);
+    
+    // Draw main board
+    graphics.lineStyle(2, 0x1d4ed8);
+    graphics.fillStyle(0x2563eb);
     graphics.fillRect(0, 0, 700, 600);
     
-    // Draw cells
+    // Draw cells with 3D effect
     for (let row = 0; row < 6; row++) {
         for (let col = 0; col < 7; col++) {
-            graphics.fillStyle(0xffffff);
             const x = col * CELL_SIZE;
             const y = row * CELL_SIZE;
-            graphics.strokeCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE/2 - 5);
+            
+            // Cell shadow
+            graphics.fillStyle(0x1e40af);
+            graphics.fillCircle(x + CELL_SIZE/2 + 3, y + CELL_SIZE/2 + 3, CELL_SIZE/2 - 5);
+            
+            // Main cell
+            graphics.fillStyle(0xffffff);
             graphics.fillCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE/2 - 5);
+            
+            // Cell inner shadow
+            graphics.lineStyle(2, 0xe5e7eb);
+            graphics.strokeCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE/2 - 8);
         }
     }
 }
