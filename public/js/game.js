@@ -19,6 +19,10 @@ const playerNameDisplay = document.getElementById('playerName');
 const roomCodeDisplay = document.getElementById('roomCodeDisplay');
 const roomCodeText = document.getElementById('roomCodeText');
 const copyButton = document.getElementById('copyButton');
+const resultPopup = document.getElementById('resultPopup');
+const resultContent = document.getElementById('resultContent');
+const resultEmoji = document.getElementById('resultEmoji');
+const resultText = document.getElementById('resultText');
 
 // Game Configuration
 const config = {
@@ -146,12 +150,10 @@ socket.on('moveMade', ({ row, column, playerId }) => {
 
 socket.on('gameWon', (winnerId) => {
     const isWinner = winnerId === socket.id;
-    const message = isWinner ? 'You won!' : 'You lost!';
     celebrate(isWinner);
     setTimeout(() => {
-        alert(message);
-        resetGame();
-    }, 2000);
+        showResult(isWinner);
+    }, 1000);
 });
 
 socket.on('playerDisconnected', () => {
@@ -178,6 +180,7 @@ function updateTurnDisplay(names) {
 }
 
 function resetGame() {
+    hideResult();
     board = Array(6).fill().map(() => Array(7).fill(null));
     discs.forEach(disc => disc.destroy());
     discs = [];
@@ -318,4 +321,37 @@ function showRoomCode(roomId) {
         }
     };
     roomCodeDisplay.addEventListener('click', closeOnClick);
-} 
+}
+
+function showResult(isWinner) {
+    resultPopup.classList.remove('hidden');
+    
+    if (isWinner) {
+        resultEmoji.textContent = '🏆';
+        resultText.textContent = 'You Won!';
+        resultText.className = 'text-3xl font-bold mb-4 text-blue-500';
+    } else {
+        resultEmoji.textContent = '💔';
+        resultText.textContent = 'You Lost!';
+        resultText.className = 'text-3xl font-bold mb-4 text-red-500';
+    }
+    
+    // Animate popup
+    setTimeout(() => {
+        resultContent.style.transform = 'scale(1)';
+    }, 100);
+}
+
+function hideResult() {
+    resultContent.style.transform = 'scale(0)';
+    setTimeout(() => {
+        resultPopup.classList.add('hidden');
+    }, 500);
+}
+
+// Add click outside to close
+resultPopup.addEventListener('click', (e) => {
+    if (e.target === resultPopup) {
+        resetGame();
+    }
+}); 

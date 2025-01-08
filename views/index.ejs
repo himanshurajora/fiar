@@ -157,6 +157,19 @@
                 <span id="playerName" class="text-lg text-gray-400"></span>
             </div>
         </div>
+
+        <!-- Result Popup -->
+        <div id="resultPopup" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-gray-900 p-8 rounded-2xl shadow-2xl border-2 border-blue-500 backdrop-blur-lg transform transition-all duration-500 scale-0" id="resultContent">
+                <div class="text-center">
+                    <div id="resultEmoji" class="text-6xl mb-4">🏆</div>
+                    <h2 id="resultText" class="text-3xl font-bold mb-4 text-gradient animate-gradient"></h2>
+                    <button onclick="resetGame()" class="game-shadow bg-blue-600 text-white text-xl font-bold py-4 px-8 rounded-xl hover:bg-blue-700 transition-all w-full">
+                        Play Again
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
     <script src="/js/game.js"></script>
 </body>
