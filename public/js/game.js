@@ -2,6 +2,7 @@ const socket = io();
 let currentRoom = null;
 let isMyTurn = false;
 let playerColor = null;
+let playerName = '';
 
 // DOM Elements
 const menuDiv = document.getElementById('menu');
@@ -11,6 +12,10 @@ const joinRoomBtn = document.getElementById('joinRoom');
 const roomInput = document.getElementById('roomInput');
 const playerTurnSpan = document.getElementById('playerTurn');
 const roomCodeSpan = document.getElementById('roomCode');
+const nameModal = document.getElementById('nameModal');
+const playerNameInput = document.getElementById('playerName');
+const startGameBtn = document.getElementById('startGame');
+const playerNameDisplay = document.getElementById('playerName');
 
 // Game Configuration
 const config = {
@@ -18,7 +23,7 @@ const config = {
     parent: 'gameContainer',
     width: 700,
     height: 600,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#1e293b',
     scene: {
         preload: preload,
         create: create
@@ -33,8 +38,8 @@ let board = Array(6).fill().map(() => Array(7).fill(null));
 let discs = [];
 const CELL_SIZE = 100;
 const COLORS = {
-    player1: 0xff4444, // Brighter Red
-    player2: 0xffff44  // Brighter Yellow
+    player1: 0xef4444, // Red
+    player2: 0xeab308  // Yellow
 };
 
 // Event Listeners
@@ -49,23 +54,54 @@ joinRoomBtn.addEventListener('click', () => {
     }
 });
 
+startGameBtn.addEventListener('click', () => {
+    const name = playerNameInput.value.trim();
+    if (name) {
+        localStorage.setItem('playerName', name);
+        playerName = name;
+        nameModal.classList.add('hidden');
+        socket.emit('setPlayerName', { name, room: currentRoom });
+    }
+});
+
+// Initialize name from localStorage
+playerNameInput.value = localStorage.getItem('playerName') || '';
+
 // Socket Events
 socket.on('roomCreated', (roomId) => {
     currentRoom = roomId;
     playerColor = 'player1';
+    roomCodeSpan.textContent = `Room Code: ${roomId}`;
     showGame(roomId);
 });
 
-socket.on('gameStart', ({ player1, player2 }) => {
-    currentRoom = roomInput.value.trim() || currentRoom;
-    playerColor = socket.id === player1 ? 'player1' : 'player2';
-    showGame(currentRoom);
+socket.on('playerJoined', () => {
+    showNameModal();
+});
+
+socket.on('joinRoom', (roomId) => {
+    currentRoom = roomId;
+    playerColor = 'player2';
+    showGame(roomId);
+    showNameModal();
+});
+
+socket.on('gameStart', ({ player1, player2, names }) => {
+    menuDiv.style.display = 'none';
+    gameContainer.style.display = 'block';
     if (!game) {
         game = new Phaser.Game(config);
     }
     isMyTurn = socket.id === player1;
-    updateTurnDisplay();
+    updateTurnDisplay(names);
 });
+
+function showNameModal() {
+    nameModal.classList.remove('hidden');
+    if (!playerNameInput.value) {
+        playerNameInput.focus();
+    }
+}
 
 socket.on('moveMade', ({ row, column, playerId }) => {
     const color = COLORS[playerId === socket.id ? playerColor : (playerColor === 'player1' ? 'player2' : 'player1')];
@@ -125,8 +161,10 @@ function showGame(roomId) {
     roomCodeSpan.textContent = `Room: ${roomId}`;
 }
 
-function updateTurnDisplay() {
-    playerTurnSpan.textContent = isMyTurn ? 'Your turn' : 'Opponent\'s turn';
+function updateTurnDisplay(names) {
+    const currentPlayerName = isMyTurn ? playerName : (names ? names[isMyTurn ? 0 : 1] : 'Opponent');
+    playerTurnSpan.textContent = isMyTurn ? 'Your turn' : `${currentPlayerName}'s turn`;
+    playerNameDisplay.textContent = playerName;
 }
 
 function resetGame() {
@@ -170,12 +208,12 @@ function drawBoard() {
     graphics.clear();
     
     // Draw board shadow
-    graphics.fillStyle(0x1e40af);
+    graphics.fillStyle(0x0f172a);
     graphics.fillRect(10, 10, 700, 600);
     
     // Draw main board
-    graphics.lineStyle(2, 0x1d4ed8);
-    graphics.fillStyle(0x2563eb);
+    graphics.lineStyle(2, 0x1e293b);
+    graphics.fillStyle(0x1e293b);
     graphics.fillRect(0, 0, 700, 600);
     
     // Draw cells with 3D effect
@@ -185,15 +223,15 @@ function drawBoard() {
             const y = row * CELL_SIZE;
             
             // Cell shadow
-            graphics.fillStyle(0x1e40af);
+            graphics.fillStyle(0x0f172a);
             graphics.fillCircle(x + CELL_SIZE/2 + 3, y + CELL_SIZE/2 + 3, CELL_SIZE/2 - 5);
             
             // Main cell
-            graphics.fillStyle(0xffffff);
+            graphics.fillStyle(0x334155);
             graphics.fillCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE/2 - 5);
             
             // Cell inner shadow
-            graphics.lineStyle(2, 0xe5e7eb);
+            graphics.lineStyle(2, 0x1e293b);
             graphics.strokeCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE/2 - 8);
         }
     }

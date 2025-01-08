@@ -21,7 +21,11 @@ io.on('connection', (socket) => {
 
     socket.on('createRoom', () => {
         const roomId = Math.random().toString(36).substring(2, 8);
-        rooms.set(roomId, { players: [socket.id], board: Array(6).fill().map(() => Array(7).fill(null)) });
+        rooms.set(roomId, { 
+            players: [socket.id], 
+            names: {},
+            board: Array(6).fill().map(() => Array(7).fill(null)) 
+        });
         socket.join(roomId);
         socket.emit('roomCreated', roomId);
     });
@@ -31,14 +35,24 @@ io.on('connection', (socket) => {
         if (room && room.players.length < 2) {
             room.players.push(socket.id);
             socket.join(roomId);
-            if (room.players.length === 2) {
-                io.to(roomId).emit('gameStart', {
-                    player1: room.players[0],
-                    player2: room.players[1]
-                });
-            }
+            socket.emit('joinRoom', roomId);
+            io.to(roomId).emit('playerJoined');
         } else {
             socket.emit('joinError', 'Room full or not found');
+        }
+    });
+
+    socket.on('setPlayerName', ({ name, room }) => {
+        const gameRoom = rooms.get(room);
+        if (gameRoom) {
+            gameRoom.names[socket.id] = name;
+            if (Object.keys(gameRoom.names).length === 2) {
+                io.to(room).emit('gameStart', {
+                    player1: gameRoom.players[0],
+                    player2: gameRoom.players[1],
+                    names: [gameRoom.names[gameRoom.players[0]], gameRoom.names[gameRoom.players[1]]]
+                });
+            }
         }
     });
 
@@ -51,7 +65,12 @@ io.on('connection', (socket) => {
         for (let row = 5; row >= 0; row--) {
             if (!board[row][column]) {
                 board[row][column] = playerId;
-                io.to(roomId).emit('moveMade', { row, column, playerId });
+                io.to(roomId).emit('moveMade', { 
+                    row, 
+                    column, 
+                    playerId,
+                    playerName: room.names[playerId]
+                });
                 
                 // Check for win condition
                 if (checkWin(board, row, column, playerId)) {
