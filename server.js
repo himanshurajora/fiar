@@ -7,6 +7,29 @@ const path = require('path');
 // Game rooms storage
 const rooms = new Map();
 
+// Room timeout duration (1 minute)
+const ROOM_TIMEOUT = 60000;
+
+function emitActiveRooms() {
+    const activeRooms = Array.from(rooms.entries())
+        .filter(([_, room]) => room.players.length < 2)
+        .map(([id, room]) => ({
+            id,
+            createdAt: room.createdAt,
+            playerCount: room.players.length
+        }));
+    io.emit('activeRooms', activeRooms);
+}
+
+function cleanupRoom(roomId) {
+    const room = rooms.get(roomId);
+    if (room) {
+        io.to(roomId).emit('roomExpired');
+        rooms.delete(roomId);
+        emitActiveRooms();
+    }
+}
+
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 
@@ -18,25 +41,35 @@ app.get('/', (req, res) => {
 // Socket.io connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+    
+    // Send active rooms to new connection
+    emitActiveRooms();
 
     socket.on('createRoom', () => {
         const roomId = Math.random().toString(36).substring(2, 8);
         rooms.set(roomId, { 
             players: [socket.id], 
             names: {},
-            board: Array(6).fill().map(() => Array(7).fill(null)) 
+            board: Array(6).fill().map(() => Array(7).fill(null)),
+            createdAt: Date.now(),
+            timeoutId: setTimeout(() => cleanupRoom(roomId), ROOM_TIMEOUT)
         });
         socket.join(roomId);
         socket.emit('roomCreated', roomId);
+        emitActiveRooms();
     });
 
     socket.on('joinRoom', (roomId) => {
         const room = rooms.get(roomId);
         if (room && room.players.length < 2) {
+            // Clear timeout as room is being joined
+            clearTimeout(room.timeoutId);
+            
             room.players.push(socket.id);
             socket.join(roomId);
             socket.emit('joinRoom', roomId);
             io.to(roomId).emit('playerJoined');
+            emitActiveRooms();
         } else {
             socket.emit('joinError', 'Room full or not found');
         }
@@ -83,11 +116,11 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        // Clean up rooms when players disconnect
         for (const [roomId, room] of rooms.entries()) {
             if (room.players.includes(socket.id)) {
                 io.to(roomId).emit('playerDisconnected');
                 rooms.delete(roomId);
+                emitActiveRooms();
             }
         }
     });

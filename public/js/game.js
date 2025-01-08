@@ -23,6 +23,8 @@ const resultPopup = document.getElementById('resultPopup');
 const resultContent = document.getElementById('resultContent');
 const resultEmoji = document.getElementById('resultEmoji');
 const resultText = document.getElementById('resultText');
+const activeRoomsList = document.getElementById('activeRooms');
+const noRoomsMessage = document.getElementById('noRooms');
 
 // Game Configuration
 const config = {
@@ -354,4 +356,91 @@ resultPopup.addEventListener('click', (e) => {
     if (e.target === resultPopup) {
         resetGame();
     }
-}); 
+});
+
+// Function to create room item element
+function createRoomElement(room) {
+    const div = document.createElement('div');
+    div.className = 'room-item bg-gray-800 p-4 rounded-xl border border-gray-700 flex items-center justify-between';
+    div.dataset.roomId = room.id;
+    
+    const timeLeft = Math.max(0, 60 - Math.floor((Date.now() - room.createdAt) / 1000));
+    
+    div.innerHTML = `
+        <div class="flex-1">
+            <div class="flex items-center gap-3">
+                <span class="text-blue-500 font-mono font-bold">#${room.id}</span>
+                <span class="text-gray-400 text-sm">${timeLeft}s left</span>
+            </div>
+        </div>
+        <button class="join-room-btn bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all transform hover:scale-105"
+                onclick="joinExistingRoom('${room.id}')">
+            Join
+        </button>
+    `;
+    
+    return div;
+}
+
+// Function to update room list
+function updateRoomsList(rooms) {
+    const currentRooms = new Set(rooms.map(r => r.id));
+    const existingRooms = new Set();
+    
+    // Remove rooms that no longer exist
+    activeRoomsList.querySelectorAll('.room-item').forEach(el => {
+        if (!currentRooms.has(el.dataset.roomId)) {
+            el.classList.add('removing');
+            setTimeout(() => el.remove(), 300);
+        } else {
+            existingRooms.add(el.dataset.roomId);
+        }
+    });
+    
+    // Add new rooms
+    rooms.forEach(room => {
+        if (!existingRooms.has(room.id)) {
+            const roomElement = createRoomElement(room);
+            activeRoomsList.appendChild(roomElement);
+        }
+    });
+    
+    // Update timer for existing rooms
+    rooms.forEach(room => {
+        const roomElement = activeRoomsList.querySelector(`[data-room-id="${room.id}"]`);
+        if (roomElement) {
+            const timeLeft = Math.max(0, 60 - Math.floor((Date.now() - room.createdAt) / 1000));
+            roomElement.querySelector('.text-gray-400').textContent = `${timeLeft}s left`;
+        }
+    });
+    
+    // Show/hide no rooms message
+    noRoomsMessage.classList.toggle('hidden', rooms.length > 0);
+}
+
+// Function to join existing room
+function joinExistingRoom(roomId) {
+    socket.emit('joinRoom', roomId);
+}
+
+// Add socket event for active rooms
+socket.on('activeRooms', (rooms) => {
+    updateRoomsList(rooms);
+});
+
+// Add socket event for room expiry
+socket.on('roomExpired', () => {
+    resetGame();
+    alert('Room expired due to inactivity');
+});
+
+// Start timer updates
+setInterval(() => {
+    activeRoomsList.querySelectorAll('.room-item').forEach(el => {
+        const timeSpan = el.querySelector('.text-gray-400');
+        const currentTime = parseInt(timeSpan.textContent);
+        if (currentTime > 0) {
+            timeSpan.textContent = `${currentTime - 1}s left`;
+        }
+    });
+}, 1000); 
