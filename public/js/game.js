@@ -55,7 +55,7 @@ const resultText = document.getElementById('resultText');
 const activeRoomsList = document.getElementById('activeRooms');
 const noRoomsMessage = document.getElementById('noRooms');
 const loadingOverlay = document.getElementById('loadingOverlay');
-
+const titleAnimation = document.getElementById('titleAnimation');
 // Game Configuration
 const config = {
     type: Phaser.AUTO,
@@ -105,7 +105,7 @@ startGameBtn.addEventListener('click', () => {
         log(`Starting game with name: ${name}`);
         localStorage.setItem('playerName', name);
         playerName = name;
-        nameModal.classList.add('hidden');
+        nameModal.classList.add('hidden'); 
         socket.emit('setPlayerName', { name, room: currentRoom });
         
         // Show waiting message after name is set
@@ -145,6 +145,7 @@ socket.on('playerJoined', () => {
     log('Another player joined the room');
     // Show name modal for both players when second player joins
     roomCodeDisplay.classList.add('hidden');
+    titleAnimation.classList.add('hidden');
     showNameModal();
 });
 
@@ -203,7 +204,7 @@ socket.on('gameStart', ({ player1, player2, names }) => {
 
     // Initialize voice chat
     if (!voiceChat) {
-        voiceChat = new VoiceChat();
+        voiceChat = new VoiceChat(socket);
         voiceChat.initialize(currentRoom, socket.id === player1);
     }
 });

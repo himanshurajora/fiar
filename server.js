@@ -113,6 +113,25 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Handle peer ID exchange
+    socket.on('peerID', ({ peerId, room }) => {
+        const gameRoom = rooms.get(room);
+        if (gameRoom) {
+            // Store peer ID with socket ID
+            if (!gameRoom.peerIds) gameRoom.peerIds = {};
+            gameRoom.peerIds[socket.id] = peerId;
+            
+            // If both peer IDs are available, notify both players
+            if (Object.keys(gameRoom.peerIds).length === 2) {
+                const [player1, player2] = gameRoom.players;
+                io.to(room).emit('peerIDsExchanged', {
+                    creator: gameRoom.peerIds[player1],
+                    joiner: gameRoom.peerIds[player2]
+                });
+            }
+        }
+    });
+
     socket.on('makeMove', ({ roomId, column, playerId }) => {
         const room = rooms.get(roomId);
         if (!room) return;
