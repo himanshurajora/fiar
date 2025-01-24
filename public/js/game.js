@@ -3,6 +3,9 @@ let currentRoom = null;
 let isMyTurn = false;
 let playerColor = null;
 let playerName = '';
+let waitingTimeout = null;
+let waitingInterval = null;
+let waitingTimeLeft = 30;
 
 // Logger function
 function log(message) {
@@ -86,6 +89,10 @@ joinRoomBtn.addEventListener('click', () => {
     }
 });
 
+function updateWaitingMessage() {
+    playerTurnSpan.textContent = `Waiting for other player to join... ${waitingTimeLeft}s`;
+}
+
 startGameBtn.addEventListener('click', () => {
     const name = playerNameInput.value.trim();
     if (name) {
@@ -94,6 +101,32 @@ startGameBtn.addEventListener('click', () => {
         playerName = name;
         nameModal.classList.add('hidden');
         socket.emit('setPlayerName', { name, room: currentRoom });
+        
+        // Initialize waiting timer
+        waitingTimeLeft = 30;
+        updateWaitingMessage();
+        playerTurnSpan.classList.add('animate-pulse');
+        
+        // Update countdown every second
+        waitingInterval = setInterval(() => {
+            waitingTimeLeft--;
+            updateWaitingMessage();
+            if (waitingTimeLeft <= 0) {
+                clearInterval(waitingInterval);
+                waitingInterval = null;
+            }
+        }, 1000);
+        
+        // Set 1 minute timeout
+        waitingTimeout = setTimeout(() => {
+            log('Waiting timeout reached, returning to main menu');
+            if (waitingInterval) {
+                clearInterval(waitingInterval);
+                waitingInterval = null;
+            }
+            alert('No player joined within 1 minute. Returning to main menu.');
+            resetGame();
+        }, 30 * 1000);
     }
 });
 
@@ -118,6 +151,12 @@ socket.on('playerJoined', () => {
     showNameModal();
 });
 
+socket.on('waitingTimeout', () => {
+    log('Room timed out while waiting for players');
+    alert('Game room timed out - no player joined within 1 minute.');
+    resetGame();
+});
+
 socket.on('joinRoom', (roomId) => {
     log(`Joined room: ${roomId}`);
     currentRoom = roomId;
@@ -128,10 +167,21 @@ socket.on('joinRoom', (roomId) => {
 
 socket.on('gameStart', ({ player1, player2, names }) => {
     log(`Game starting - Player 1: ${names[0]}, Player 2: ${names[1]}`);
+    // Clear waiting timeout and interval as game is starting
+    if (waitingTimeout) {
+        clearTimeout(waitingTimeout);
+        waitingTimeout = null;
+    }
+    if (waitingInterval) {
+        clearInterval(waitingInterval);
+        waitingInterval = null;
+    }
+    
     menuDiv.style.display = 'none';
     gameContainer.classList.remove('hidden');
     gameContainer.style.display = 'block'; // Ensure container is visible
     roomCodeDisplay.classList.add('hidden');
+    playerTurnSpan.classList.remove('animate-pulse'); // Remove pulse animation
     
     // Create new game instance
     if (game) {
@@ -199,9 +249,9 @@ socket.on('gameWon', (winnerId) => {
     }, 1000);
 });
 
-socket.on('playerDisconnected', () => {
-    log('Other player disconnected from the game');
-    alert('Other player disconnected');
+socket.on('playerLeft', ({ message, disconnectedId }) => {
+    log(`Player ${disconnectedId} left the game`);
+    alert(message);
     resetGame();
 });
 
@@ -226,6 +276,16 @@ function updateTurnDisplay(names) {
 
 function resetGame() {
     log('Resetting game state');
+    // Clear waiting timeout and interval if they exist
+    if (waitingTimeout) {
+        clearTimeout(waitingTimeout);
+        waitingTimeout = null;
+    }
+    if (waitingInterval) {
+        clearInterval(waitingInterval);
+        waitingInterval = null;
+    }
+    
     hideResult();
     board = Array(6).fill().map(() => Array(7).fill(null));
     discs.forEach(disc => disc.destroy());
@@ -239,10 +299,22 @@ function resetGame() {
         graphics = null;
     }
     
+    // Reset UI elements
     menuDiv.style.display = 'block';
     gameContainer.style.display = 'none';
+    roomCodeDisplay.classList.add('hidden');
+    nameModal.classList.add('hidden');
+    playerTurnSpan.classList.remove('animate-pulse');
+    
+    // Reset game state
     currentRoom = null;
     isMyTurn = false;
+    playerColor = null;
+    
+    // Also notify server to cleanup the room if we're resetting due to timeout
+    if (currentRoom) {
+        socket.emit('leaveRoom', currentRoom);
+    }
 }
 
 function preload() {
@@ -506,4 +578,11 @@ setInterval(() => {
             timeSpan.textContent = `${currentTime - 1}s left`;
         }
     });
-}, 1000); 
+}, 1000);
+
+// Add a beforeunload event listener to handle page closes/refreshes
+window.addEventListener('beforeunload', () => {
+    if (currentRoom) {
+        socket.emit('leaveRoom', currentRoom);
+    }
+}); 

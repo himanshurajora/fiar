@@ -93,6 +93,14 @@ io.on('connection', (socket) => {
                     player2: gameRoom.players[1],
                     names: [gameRoom.names[gameRoom.players[0]], gameRoom.names[gameRoom.players[1]]]
                 });
+            } else {
+                // Start waiting timeout for second player
+                gameRoom.waitingTimeoutId = setTimeout(() => {
+                    console.log(`[Server] Waiting timeout for room ${room}, no second player joined`);
+                    io.to(room).emit('waitingTimeout');
+                    rooms.delete(room);
+                    emitActiveRooms();
+                }, 60000);
             }
         }
     });
@@ -127,10 +135,34 @@ io.on('connection', (socket) => {
         for (const [roomId, room] of rooms.entries()) {
             if (room.players.includes(socket.id)) {
                 console.log(`[Server] Player ${socket.id} disconnected from room ${roomId}, cleaning up room`);
-                io.to(roomId).emit('playerDisconnected');
+                // Clear any existing timeouts
+                if (room.timeoutId) clearTimeout(room.timeoutId);
+                if (room.waitingTimeoutId) clearTimeout(room.waitingTimeoutId);
+                // Notify all players in the room
+                io.to(roomId).emit('playerLeft', {
+                    message: 'Other player disconnected from the game',
+                    disconnectedId: socket.id
+                });
                 rooms.delete(roomId);
                 emitActiveRooms();
             }
+        }
+    });
+
+    socket.on('leaveRoom', (roomId) => {
+        console.log(`[Server] Player ${socket.id} manually left room ${roomId}`);
+        const room = rooms.get(roomId);
+        if (room) {
+            // Clear any existing timeouts
+            if (room.timeoutId) clearTimeout(room.timeoutId);
+            if (room.waitingTimeoutId) clearTimeout(room.waitingTimeoutId);
+            // Notify all players in the room
+            io.to(roomId).emit('playerLeft', {
+                message: 'Other player left the game',
+                disconnectedId: socket.id
+            });
+            rooms.delete(roomId);
+            emitActiveRooms();
         }
     });
 });
