@@ -4,6 +4,26 @@ let isMyTurn = false;
 let playerColor = null;
 let playerName = '';
 
+// Logger function
+function log(message) {
+    console.log(`[Client] ${message}`);
+}
+
+// Socket connection events
+socket.on('connect', () => {
+    log(`Connected to server with ID: ${socket.id}`);
+    loadingOverlay.style.opacity = '0';
+    setTimeout(() => {
+        loadingOverlay.style.display = 'none';
+    }, 500); // Wait for fade out animation
+});
+
+socket.on('disconnect', () => {
+    log('Disconnected from server');
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.style.opacity = '1';
+});
+
 // DOM Elements
 const menuDiv = document.getElementById('menu');
 const gameContainer = document.getElementById('gameContainer');
@@ -26,20 +46,6 @@ const resultText = document.getElementById('resultText');
 const activeRoomsList = document.getElementById('activeRooms');
 const noRoomsMessage = document.getElementById('noRooms');
 const loadingOverlay = document.getElementById('loadingOverlay');
-
-// Hide loading overlay when socket connects
-socket.on('connect', () => {
-    loadingOverlay.style.opacity = '0';
-    setTimeout(() => {
-        loadingOverlay.style.display = 'none';
-    }, 500); // Wait for fade out animation
-});
-
-// Show loading overlay if connection is lost
-socket.on('disconnect', () => {
-    loadingOverlay.style.display = 'flex';
-    loadingOverlay.style.opacity = '1';
-});
 
 // Game Configuration
 const config = {
@@ -68,12 +74,14 @@ const COLORS = {
 
 // Event Listeners
 createRoomBtn.addEventListener('click', () => {
+    log('Creating new room');
     socket.emit('createRoom');
 });
 
 joinRoomBtn.addEventListener('click', () => {
     const roomId = roomInput.value.trim();
     if (roomId) {
+        log(`Attempting to join room: ${roomId}`);
         socket.emit('joinRoom', roomId);
     }
 });
@@ -81,6 +89,7 @@ joinRoomBtn.addEventListener('click', () => {
 startGameBtn.addEventListener('click', () => {
     const name = playerNameInput.value.trim();
     if (name) {
+        log(`Starting game with name: ${name}`);
         localStorage.setItem('playerName', name);
         playerName = name;
         nameModal.classList.add('hidden');
@@ -89,21 +98,28 @@ startGameBtn.addEventListener('click', () => {
 });
 
 // Initialize name from localStorage
-playerNameInput.value = localStorage.getItem('playerName') || '';
+const savedName = localStorage.getItem('playerName') || '';
+if (savedName) {
+    log(`Loaded saved player name: ${savedName}`);
+    playerNameInput.value = savedName;
+}
 
 // Socket Events
 socket.on('roomCreated', (roomId) => {
+    log(`Room created: ${roomId}`);
     currentRoom = roomId;
     playerColor = 'player1';
     showGame(roomId);
 });
 
 socket.on('playerJoined', () => {
+    log('Another player joined the room');
     roomCodeDisplay.classList.add('hidden');
     showNameModal();
 });
 
 socket.on('joinRoom', (roomId) => {
+    log(`Joined room: ${roomId}`);
     currentRoom = roomId;
     playerColor = 'player2';
     showGame(roomId);
@@ -111,17 +127,27 @@ socket.on('joinRoom', (roomId) => {
 });
 
 socket.on('gameStart', ({ player1, player2, names }) => {
+    log(`Game starting - Player 1: ${names[0]}, Player 2: ${names[1]}`);
     menuDiv.style.display = 'none';
     gameContainer.classList.remove('hidden');
+    gameContainer.style.display = 'block'; // Ensure container is visible
     roomCodeDisplay.classList.add('hidden');
-    if (!game) {
-        game = new Phaser.Game(config);
+    
+    // Create new game instance
+    if (game) {
+        game.destroy(true);
+        game = null;
+        gameScene = null;
+        graphics = null;
     }
+    game = new Phaser.Game(config);
+    
     isMyTurn = socket.id === player1;
     updateTurnDisplay(names);
 });
 
 function showNameModal() {
+    log('Showing name input modal');
     nameModal.classList.remove('hidden');
     if (!playerNameInput.value) {
         playerNameInput.focus();
@@ -174,15 +200,18 @@ socket.on('gameWon', (winnerId) => {
 });
 
 socket.on('playerDisconnected', () => {
+    log('Other player disconnected from the game');
     alert('Other player disconnected');
     resetGame();
 });
 
 socket.on('joinError', (message) => {
+    log(`Join room error: ${message}`);
     alert(message);
 });
 
 function showGame(roomId) {
+    log(`Showing game UI for room: ${roomId}`);
     menuDiv.style.display = 'none';
     gameContainer.classList.remove('hidden');
     if (playerColor === 'player1') {
@@ -191,19 +220,25 @@ function showGame(roomId) {
 }
 
 function updateTurnDisplay(names) {
-    const currentPlayerName = isMyTurn ? playerName : (names ? names[isMyTurn ? 0 : 1] : 'Opponent');
-    playerTurnSpan.textContent = isMyTurn ? 'Your turn' : `${currentPlayerName}'s turn`;
+    playerTurnSpan.textContent = isMyTurn ? 'Your turn' : "Opponent's turn";
     playerNameDisplay.textContent = playerName;
 }
 
 function resetGame() {
+    log('Resetting game state');
     hideResult();
     board = Array(6).fill().map(() => Array(7).fill(null));
     discs.forEach(disc => disc.destroy());
     discs = [];
-    if (gameScene) {
-        gameScene.scene.restart();
+    
+    // Properly destroy the Phaser game instance
+    if (game) {
+        game.destroy(true);
+        game = null;
+        gameScene = null;
+        graphics = null;
     }
+    
     menuDiv.style.display = 'block';
     gameContainer.style.display = 'none';
     currentRoom = null;
@@ -271,11 +306,16 @@ function dropDisc(row, column, color) {
     board[row][column] = color;
 }
 
-// Add copy button functionality
+// Copy button functionality
 copyButton.addEventListener('click', async () => {
-    await navigator.clipboard.writeText(currentRoom);
-    copyButton.classList.add('copied');
-    setTimeout(() => copyButton.classList.remove('copied'), 2000);
+    try {
+        await navigator.clipboard.writeText(currentRoom);
+        log(`Room code copied to clipboard: ${currentRoom}`);
+        copyButton.classList.add('copied');
+        setTimeout(() => copyButton.classList.remove('copied'), 2000);
+    } catch (err) {
+        log(`Error copying room code: ${err.message}`);
+    }
 });
 
 // Add celebration animations
@@ -327,12 +367,13 @@ function celebrate(isWinner) {
 }
 
 function showRoomCode(roomId) {
+    log(`Displaying room code: ${roomId}`);
     roomCodeDisplay.classList.remove('hidden');
     roomCodeText.textContent = roomId;
     
-    // Close on click outside
     const closeOnClick = (e) => {
         if (e.target === roomCodeDisplay) {
+            log('Room code display closed');
             roomCodeDisplay.classList.add('hidden');
             roomCodeDisplay.removeEventListener('click', closeOnClick);
         }
@@ -341,6 +382,7 @@ function showRoomCode(roomId) {
 }
 
 function showResult(isWinner) {
+    log(`Showing game result - Winner: ${isWinner ? 'local player' : 'opponent'}`);
     resultPopup.classList.remove('hidden');
     
     if (isWinner) {
@@ -353,13 +395,13 @@ function showResult(isWinner) {
         resultText.className = 'text-3xl font-bold mb-4 text-red-500';
     }
     
-    // Animate popup
     setTimeout(() => {
         resultContent.style.transform = 'scale(1)';
     }, 100);
 }
 
 function hideResult() {
+    log('Hiding game result popup');
     resultContent.style.transform = 'scale(0)';
     setTimeout(() => {
         resultPopup.classList.add('hidden');
@@ -399,12 +441,14 @@ function createRoomElement(room) {
 
 // Function to update room list
 function updateRoomsList(rooms) {
+    log(`Updating rooms list UI with ${rooms.length} rooms`);
     const currentRooms = new Set(rooms.map(r => r.id));
     const existingRooms = new Set();
     
     // Remove rooms that no longer exist
     activeRoomsList.querySelectorAll('.room-item').forEach(el => {
         if (!currentRooms.has(el.dataset.roomId)) {
+            log(`Removing expired room from UI: ${el.dataset.roomId}`);
             el.classList.add('removing');
             setTimeout(() => el.remove(), 300);
         } else {
@@ -415,6 +459,7 @@ function updateRoomsList(rooms) {
     // Add new rooms
     rooms.forEach(room => {
         if (!existingRooms.has(room.id)) {
+            log(`Adding new room to UI: ${room.id}`);
             const roomElement = createRoomElement(room);
             activeRoomsList.appendChild(roomElement);
         }
@@ -435,16 +480,19 @@ function updateRoomsList(rooms) {
 
 // Function to join existing room
 function joinExistingRoom(roomId) {
+    log(`Joining existing room: ${roomId}`);
     socket.emit('joinRoom', roomId);
 }
 
 // Add socket event for active rooms
 socket.on('activeRooms', (rooms) => {
+    log(`Received active rooms update: ${rooms.length} rooms available`);
     updateRoomsList(rooms);
 });
 
 // Add socket event for room expiry
 socket.on('roomExpired', () => {
+    log('Room expired due to inactivity');
     resetGame();
     alert('Room expired due to inactivity');
 });

@@ -18,12 +18,14 @@ function emitActiveRooms() {
             createdAt: room.createdAt,
             playerCount: room.players.length
         }));
+    console.log(`[Server] Active rooms updated: ${activeRooms.length} available rooms`);
     io.emit('activeRooms', activeRooms);
 }
 
 function cleanupRoom(roomId) {
     const room = rooms.get(roomId);
     if (room) {
+        console.log(`[Server] Room ${roomId} expired and cleaned up`);
         io.to(roomId).emit('roomExpired');
         rooms.delete(roomId);
         emitActiveRooms();
@@ -35,18 +37,20 @@ app.use(express.static('public'));
 
 // Routes
 app.get('/', (req, res) => {
+    console.log(`[Server] New client request from ${req.ip}`);
     res.render('index');
 });
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+    console.log(`[Server] New socket connection: ${socket.id} from ${socket.handshake.address}`);
     
     // Send active rooms to new connection
     emitActiveRooms();
 
     socket.on('createRoom', () => {
         const roomId = Math.random().toString(36).substring(2, 8);
+        console.log(`[Server] Room ${roomId} created by socket ${socket.id}`);
         rooms.set(roomId, { 
             players: [socket.id], 
             names: {},
@@ -64,6 +68,7 @@ io.on('connection', (socket) => {
         if (room && room.players.length < 2) {
             // Clear timeout as room is being joined
             clearTimeout(room.timeoutId);
+            console.log(`[Server] Socket ${socket.id} joined room ${roomId}`);
             
             room.players.push(socket.id);
             socket.join(roomId);
@@ -71,6 +76,7 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('playerJoined');
             emitActiveRooms();
         } else {
+            console.log(`[Server] Join room failed for socket ${socket.id}, room: ${roomId}, reason: ${room ? 'Room full' : 'Room not found'}`);
             socket.emit('joinError', 'Room full or not found');
         }
     });
@@ -78,8 +84,10 @@ io.on('connection', (socket) => {
     socket.on('setPlayerName', ({ name, room }) => {
         const gameRoom = rooms.get(room);
         if (gameRoom) {
+            console.log(`[Server] Player name set in room ${room}: ${socket.id} -> ${name}`);
             gameRoom.names[socket.id] = name;
             if (Object.keys(gameRoom.names).length === 2) {
+                console.log(`[Server] Game starting in room ${room} with players: ${JSON.stringify(gameRoom.names)}`);
                 io.to(room).emit('gameStart', {
                     player1: gameRoom.players[0],
                     player2: gameRoom.players[1],
@@ -115,9 +123,10 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
+        console.log(`[Server] Socket disconnected: ${socket.id}`);
         for (const [roomId, room] of rooms.entries()) {
             if (room.players.includes(socket.id)) {
+                console.log(`[Server] Player ${socket.id} disconnected from room ${roomId}, cleaning up room`);
                 io.to(roomId).emit('playerDisconnected');
                 rooms.delete(roomId);
                 emitActiveRooms();
@@ -176,5 +185,5 @@ function checkWin(board, row, col, player) {
 
 const PORT = process.env.PORT || 3000;
 http.listen(PORT, () => {
-    console.log(`Server running on port http://localhost:${PORT}`);
+    console.log(`[Server] Server started on http://localhost:${PORT}`);
 }); 
