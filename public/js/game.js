@@ -102,12 +102,13 @@ startGameBtn.addEventListener('click', () => {
         nameModal.classList.add('hidden');
         socket.emit('setPlayerName', { name, room: currentRoom });
         
-        // Initialize waiting timer
+        // Show waiting message after name is set
         waitingTimeLeft = 30;
         updateWaitingMessage();
         playerTurnSpan.classList.add('animate-pulse');
         
         // Update countdown every second
+        if (waitingInterval) clearInterval(waitingInterval);
         waitingInterval = setInterval(() => {
             waitingTimeLeft--;
             updateWaitingMessage();
@@ -116,17 +117,6 @@ startGameBtn.addEventListener('click', () => {
                 waitingInterval = null;
             }
         }, 1000);
-        
-        // Set 1 minute timeout
-        waitingTimeout = setTimeout(() => {
-            log('Waiting timeout reached, returning to main menu');
-            if (waitingInterval) {
-                clearInterval(waitingInterval);
-                waitingInterval = null;
-            }
-            alert('No player joined within 1 minute. Returning to main menu.');
-            resetGame();
-        }, 30 * 1000);
     }
 });
 
@@ -147,13 +137,23 @@ socket.on('roomCreated', (roomId) => {
 
 socket.on('playerJoined', () => {
     log('Another player joined the room');
+    // Show name modal for both players when second player joins
     roomCodeDisplay.classList.add('hidden');
     showNameModal();
 });
 
 socket.on('waitingTimeout', () => {
     log('Room timed out while waiting for players');
-    alert('Game room timed out - no player joined within 1 minute.');
+    // Clear any existing timeouts and intervals
+    if (waitingTimeout) {
+        clearTimeout(waitingTimeout);
+        waitingTimeout = null;
+    }
+    if (waitingInterval) {
+        clearInterval(waitingInterval);
+        waitingInterval = null;
+    }
+    alert('Game room timed out - no player joined within time limit.');
     resetGame();
 });
 
@@ -264,6 +264,10 @@ function showGame(roomId) {
     log(`Showing game UI for room: ${roomId}`);
     menuDiv.style.display = 'none';
     gameContainer.classList.remove('hidden');
+    gameContainer.style.display = 'block';
+    playerTurnSpan.textContent = ''; // Clear any existing messages
+    
+    // Only show room code for player 1 (room creator)
     if (playerColor === 'player1') {
         showRoomCode(roomId);
     }
@@ -286,6 +290,9 @@ function resetGame() {
         waitingInterval = null;
     }
     
+    // Reset waiting time
+    waitingTimeLeft = 30;
+    
     hideResult();
     board = Array(6).fill().map(() => Array(7).fill(null));
     discs.forEach(disc => disc.destroy());
@@ -305,6 +312,7 @@ function resetGame() {
     roomCodeDisplay.classList.add('hidden');
     nameModal.classList.add('hidden');
     playerTurnSpan.classList.remove('animate-pulse');
+    playerTurnSpan.textContent = ''; // Clear any waiting message
     
     // Reset game state
     currentRoom = null;
@@ -442,15 +450,6 @@ function showRoomCode(roomId) {
     log(`Displaying room code: ${roomId}`);
     roomCodeDisplay.classList.remove('hidden');
     roomCodeText.textContent = roomId;
-    
-    const closeOnClick = (e) => {
-        if (e.target === roomCodeDisplay) {
-            log('Room code display closed');
-            roomCodeDisplay.classList.add('hidden');
-            roomCodeDisplay.removeEventListener('click', closeOnClick);
-        }
-    };
-    roomCodeDisplay.addEventListener('click', closeOnClick);
 }
 
 function showResult(isWinner) {

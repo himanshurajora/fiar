@@ -86,21 +86,29 @@ io.on('connection', (socket) => {
         if (gameRoom) {
             console.log(`[Server] Player name set in room ${room}: ${socket.id} -> ${name}`);
             gameRoom.names[socket.id] = name;
+            
             if (Object.keys(gameRoom.names).length === 2) {
+                // Both players have set their names, start the game
                 console.log(`[Server] Game starting in room ${room} with players: ${JSON.stringify(gameRoom.names)}`);
+                // Clear any existing timeouts
+                if (gameRoom.waitingTimeoutId) {
+                    clearTimeout(gameRoom.waitingTimeoutId);
+                    gameRoom.waitingTimeoutId = null;
+                }
                 io.to(room).emit('gameStart', {
                     player1: gameRoom.players[0],
                     player2: gameRoom.players[1],
                     names: [gameRoom.names[gameRoom.players[0]], gameRoom.names[gameRoom.players[1]]]
                 });
             } else {
-                // Start waiting timeout for second player
+                // First player set their name, start waiting timeout
+                if (gameRoom.waitingTimeoutId) clearTimeout(gameRoom.waitingTimeoutId);
                 gameRoom.waitingTimeoutId = setTimeout(() => {
-                    console.log(`[Server] Waiting timeout for room ${room}, no second player joined`);
+                    console.log(`[Server] Waiting timeout for room ${room}, second player didn't enter name`);
                     io.to(room).emit('waitingTimeout');
                     rooms.delete(room);
                     emitActiveRooms();
-                }, 60000);
+                }, 30000); // 30 seconds timeout
             }
         }
     });
