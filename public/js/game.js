@@ -10,6 +10,9 @@ let waitingTimeLeft = 30;
 // Add voice chat variable
 let voiceChat = null;
 
+// Add move lock variable
+let isMoveLocked = false;
+
 // Logger function
 function log(message) {
     console.log(`[Client] ${message}`);
@@ -56,7 +59,7 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 // Game Configuration
 const config = {
     type: Phaser.AUTO,
-    parent: 'gameContainer',
+    parent: 'phaser-game',
     width: 700,
     height: 600,
     backgroundColor: '#1e293b',
@@ -233,6 +236,9 @@ socket.on('moveMade', ({ row, column, playerId }) => {
     discGroup.add([shadow, disc, highlight]);
     discs.push(discGroup);
     
+    // Lock moves during animation
+    isMoveLocked = true;
+    
     // Animate fall with bounce
     gameScene.tweens.add({
         targets: discGroup,
@@ -242,6 +248,10 @@ socket.on('moveMade', ({ row, column, playerId }) => {
         onUpdate: () => {
             // Rotate slightly during fall
             discGroup.rotation += 0.01;
+        },
+        onComplete: () => {
+            // Unlock moves after animation completes
+            isMoveLocked = false;
         }
     });
     
@@ -289,6 +299,9 @@ function updateTurnDisplay(names) {
 
 function resetGame() {
     log('Resetting game state');
+    // Reset move lock
+    isMoveLocked = false;
+    
     // Clear waiting timeout and interval if they exist
     if (waitingTimeout) {
         clearTimeout(waitingTimeout);
@@ -351,7 +364,8 @@ function create() {
     drawBoard();
     
     this.input.on('pointerdown', (pointer) => {
-        if (!isMyTurn) return;
+        // Prevent moves if it's not player's turn or if move is locked
+        if (!isMyTurn || isMoveLocked) return;
         
         const column = Math.floor(pointer.x / CELL_SIZE);
         if (column >= 0 && column < 7 && currentRoom) {

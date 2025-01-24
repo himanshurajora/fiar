@@ -100,6 +100,12 @@
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
+            padding: 2rem;
+            max-height: 100vh;
+            max-width: 100vw;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         .room-item {
             transform-origin: top;
@@ -144,6 +150,19 @@
         #activeRooms::-webkit-scrollbar-thumb {
             background: #3b82f6;
             border-radius: 4px;
+        }
+
+        /* Add responsive scaling for the game board */
+        @media (max-height: 800px) {
+            .game-wrapper {
+                transform: translate(-50%, -50%) scale(0.9);
+            }
+        }
+
+        @media (max-height: 700px) {
+            .game-wrapper {
+                transform: translate(-50%, -50%) scale(0.8);
+            }
         }
     </style>
 </head>
@@ -215,9 +234,12 @@
 
         <!-- Game Container -->
         <div id="gameContainer" class="game-wrapper hidden">
-            <div class="flex items-center gap-4 mt-20 pt-4">
-                <span id="playerTurn" class="text-2xl font-bold text-blue-500 animate-pulse"></span>
-                <span id="playerName" class="text-lg text-gray-400"></span>
+            <div class="flex flex-col items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <span id="playerTurn" class="text-2xl font-bold text-blue-500 animate-pulse"></span>
+                    <span id="playerName" class="text-lg text-gray-400"></span>
+                </div>
+                <div id="phaser-game" class="mt-4"></div>
             </div>
         </div>
 
