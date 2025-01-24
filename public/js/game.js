@@ -60,8 +60,11 @@ const titleAnimation = document.getElementById('titleAnimation');
 const config = {
     type: Phaser.AUTO,
     parent: 'phaser-game',
-    width: 700,
-    height: 600,
+    scale: {
+        mode: Phaser.Scale.NONE, // We'll handle scaling manually
+        width: 700,
+        height: 600,
+    },
     backgroundColor: '#1e293b',
     scene: {
         preload: preload,
@@ -75,7 +78,7 @@ let gameScene = null;
 let graphics = null;
 let board = Array(6).fill().map(() => Array(7).fill(null));
 let discs = [];
-const CELL_SIZE = 100;
+let CELL_SIZE = 100;
 const COLORS = {
     player1: 0xef4444, // Red
     player2: 0xeab308  // Yellow
@@ -359,10 +362,47 @@ function preload() {
     // No assets to preload
 }
 
+// Add resize handler
+function handleResize() {
+    if (!game) return;
+
+    const width = window.innerWidth;
+    const gameWidth = width > 1000 ? 800 : Math.min(700, width * 0.95);
+    const scale = gameWidth / 700; // Base width is 700
+    const gameHeight = 600 * scale;
+
+    // Update game size
+    game.scale.resize(gameWidth, gameHeight);
+    
+    // Update CELL_SIZE based on scale
+    CELL_SIZE = Math.floor(100 * scale);
+    
+    // Redraw board with new size
+    if (graphics) {
+        drawBoard();
+        
+        // Reposition existing discs
+        discs.forEach(disc => {
+            const col = Math.floor(disc.x / (100 * disc.scaleX)); // Get original column
+            const row = Math.floor(disc.y / (100 * disc.scaleX)); // Get original row
+            
+            // Update position with new scale
+            disc.setScale(scale);
+            disc.setPosition(col * CELL_SIZE + CELL_SIZE/2, row * CELL_SIZE + CELL_SIZE/2);
+        });
+    }
+}
+
+// Add window resize listener
+window.addEventListener('resize', handleResize);
+
 function create() {
     gameScene = this;
     graphics = this.add.graphics();
     discs = [];
+    
+    // Initial resize
+    handleResize();
     drawBoard();
     
     this.input.on('pointerdown', (pointer) => {
@@ -400,14 +440,17 @@ function create() {
 function drawBoard() {
     graphics.clear();
     
+    const boardWidth = CELL_SIZE * 7;
+    const boardHeight = CELL_SIZE * 6;
+    
     // Draw board shadow
     graphics.fillStyle(0x0f172a);
-    graphics.fillRect(10, 10, 700, 600);
+    graphics.fillRect(10, 10, boardWidth, boardHeight);
     
     // Draw main board
     graphics.lineStyle(2, 0x1e293b);
     graphics.fillStyle(0x1e293b);
-    graphics.fillRect(0, 0, 700, 600);
+    graphics.fillRect(0, 0, boardWidth, boardHeight);
     
     // Draw cells with 3D effect
     for (let row = 0; row < 6; row++) {

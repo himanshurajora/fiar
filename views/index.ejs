@@ -100,12 +100,14 @@
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 10;
-            padding: 2rem;
+            padding: 1rem;
             max-height: 100vh;
             max-width: 100vw;
+            width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
         }
         .room-item {
             transform-origin: top;
@@ -152,7 +154,33 @@
             border-radius: 4px;
         }
 
-        /* Add responsive scaling for the game board */
+        #phaser-game {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #phaser-game canvas {
+            max-width: 100%;
+            height: auto !important;
+        }
+
+        /* Update responsive scaling for the game board */
+        @media (max-width: 768px) {
+            .game-wrapper {
+                padding: 0.5rem;
+            }
+            
+            .text-6xl {
+                font-size: 3rem;
+            }
+            
+            .text-2xl {
+                font-size: 1.25rem;
+            }
+        }
+
         @media (max-height: 800px) {
             .game-wrapper {
                 transform: translate(-50%, -50%) scale(0.9);
