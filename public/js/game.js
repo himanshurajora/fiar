@@ -313,7 +313,7 @@ function resetGame() {
         waitingInterval = null;
     }
     
-    // Cleanup voice chat
+    // Cleanup voice chat and ensure it's set to null
     if (voiceChat) {
         voiceChat.cleanup();
         voiceChat = null;
@@ -337,6 +337,7 @@ function resetGame() {
     
     // Reset UI elements
     menuDiv.style.display = 'block';
+    titleAnimation.classList.remove('hidden');
     gameContainer.style.display = 'none';
     roomCodeDisplay.classList.add('hidden');
     nameModal.classList.add('hidden');
@@ -502,6 +503,12 @@ function showRoomCode(roomId) {
 function showResult(isWinner) {
     log(`Showing game result - Winner: ${isWinner ? 'local player' : 'opponent'}`);
     resultPopup.classList.remove('hidden');
+    
+    // Cleanup voice chat immediately when game ends
+    if (voiceChat) {
+        voiceChat.cleanup();
+        voiceChat = null;
+    }
     
     if (isWinner) {
         resultEmoji.textContent = '🏆';
