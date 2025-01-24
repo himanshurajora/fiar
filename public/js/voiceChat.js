@@ -119,8 +119,35 @@ class VoiceChat {
         call.on('stream', (remoteStream) => {
             console.log('Received remote stream');
             const audio = document.createElement('audio');
+            
+            // Set audio element properties
+            audio.id = 'remoteAudio';
+            audio.autoplay = true;
+            audio.muted = true; // Start muted by default
+            
+            // Create audio track constraints
+            const audioTrack = remoteStream.getAudioTracks()[0];
+            if (audioTrack) {
+                // Listen for mute/unmute events
+                audioTrack.onmute = () => {
+                    audio.muted = true;
+                    console.log('Remote audio muted');
+                };
+                
+                audioTrack.onunmute = () => {
+                    audio.muted = false;
+                    console.log('Remote audio unmuted');
+                };
+                
+                // Set initial mute state
+                audio.muted = audioTrack.muted;
+            }
+            
             audio.srcObject = remoteStream;
             audio.play().catch(console.error);
+            
+            // Store reference to audio element
+            this.remoteAudio = audio;
         });
     }
     
@@ -152,6 +179,16 @@ class VoiceChat {
         if (!this.isConnected) return;
         
         this.isTalking = !this.isTalking;
+        
+        // Toggle audio track enabled state
+        if (this.stream) {
+            const audioTrack = this.stream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = this.isTalking;
+            }
+        }
+        
+        // Update gain node value
         this.gainNode.gain.value = this.isTalking ? 1 : 0;
         this.updateMicUI(this.isTalking);
     }
