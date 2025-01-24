@@ -7,6 +7,9 @@ let waitingTimeout = null;
 let waitingInterval = null;
 let waitingTimeLeft = 30;
 
+// Add voice chat variable
+let voiceChat = null;
+
 // Logger function
 function log(message) {
     console.log(`[Client] ${message}`);
@@ -179,9 +182,9 @@ socket.on('gameStart', ({ player1, player2, names }) => {
     
     menuDiv.style.display = 'none';
     gameContainer.classList.remove('hidden');
-    gameContainer.style.display = 'block'; // Ensure container is visible
+    gameContainer.style.display = 'block';
     roomCodeDisplay.classList.add('hidden');
-    playerTurnSpan.classList.remove('animate-pulse'); // Remove pulse animation
+    playerTurnSpan.classList.remove('animate-pulse');
     
     // Create new game instance
     if (game) {
@@ -194,6 +197,12 @@ socket.on('gameStart', ({ player1, player2, names }) => {
     
     isMyTurn = socket.id === player1;
     updateTurnDisplay(names);
+
+    // Initialize voice chat
+    if (!voiceChat) {
+        voiceChat = new VoiceChat();
+        voiceChat.initialize(currentRoom, socket.id === player1);
+    }
 });
 
 function showNameModal() {
@@ -290,6 +299,12 @@ function resetGame() {
         waitingInterval = null;
     }
     
+    // Cleanup voice chat
+    if (voiceChat) {
+        voiceChat.cleanup();
+        voiceChat = null;
+    }
+    
     // Reset waiting time
     waitingTimeLeft = 30;
     
@@ -312,7 +327,7 @@ function resetGame() {
     roomCodeDisplay.classList.add('hidden');
     nameModal.classList.add('hidden');
     playerTurnSpan.classList.remove('animate-pulse');
-    playerTurnSpan.textContent = ''; // Clear any waiting message
+    playerTurnSpan.textContent = '';
     
     // Reset game state
     currentRoom = null;
