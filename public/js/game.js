@@ -365,16 +365,33 @@ function create() {
     drawBoard();
     
     this.input.on('pointerdown', (pointer) => {
-        // Prevent moves if it's not player's turn or if move is locked
-        if (!isMyTurn || isMoveLocked) return;
+        // Prevent moves if:
+        // 1. It's not player's turn
+        // 2. Move is locked (animation in progress)
+        // 3. Column is full
+        // 4. Game is not in progress
+        if (!isMyTurn || isMoveLocked || !currentRoom) return;
         
         const column = Math.floor(pointer.x / CELL_SIZE);
-        if (column >= 0 && column < 7 && currentRoom) {
-            socket.emit('makeMove', {
-                roomId: currentRoom,
-                column: column,
-                playerId: socket.id
-            });
+        if (column >= 0 && column < 7) {
+            // Check if column is full
+            let columnFull = true;
+            for (let row = 0; row < 6; row++) {
+                if (board[row][column] === null) {
+                    columnFull = false;
+                    break;
+                }
+            }
+            
+            if (!columnFull) {
+                // Lock moves immediately when valid move is made
+                isMoveLocked = true;
+                socket.emit('makeMove', {
+                    roomId: currentRoom,
+                    column: column,
+                    playerId: socket.id
+                });
+            }
         }
     });
 }
