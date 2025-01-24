@@ -25,6 +25,21 @@ const resultEmoji = document.getElementById('resultEmoji');
 const resultText = document.getElementById('resultText');
 const activeRoomsList = document.getElementById('activeRooms');
 const noRoomsMessage = document.getElementById('noRooms');
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+// Hide loading overlay when socket connects
+socket.on('connect', () => {
+    loadingOverlay.style.opacity = '0';
+    setTimeout(() => {
+        loadingOverlay.style.display = 'none';
+    }, 500); // Wait for fade out animation
+});
+
+// Show loading overlay if connection is lost
+socket.on('disconnect', () => {
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.style.opacity = '1';
+});
 
 // Game Configuration
 const config = {
