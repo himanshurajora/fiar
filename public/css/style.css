@@ -108,10 +108,14 @@ input {
 
 #phaser-game canvas {
     display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-width: none !important;
-    max-height: none !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: 90vh !important;
+    image-rendering: auto !important;
+    -ms-interpolation-mode: bicubic;
+    backface-visibility: hidden;
+    transform: translateZ(0);
 }
 
 /* Voice chat controls positioning */
@@ -141,8 +145,7 @@ input {
     }
 }
 
-/* Remove any other canvas styles that might interfere */
+/* Remove the general canvas styles that might interfere */
 canvas {
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
+    image-rendering: auto;
 } 

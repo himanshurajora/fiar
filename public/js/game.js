@@ -58,14 +58,22 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 const titleAnimation = document.getElementById('titleAnimation');
 // Game Configuration
 const config = {
-    type: Phaser.AUTO,
+    type: Phaser.CANVAS,
+    width: 700 * window.devicePixelRatio || 1,
+    height: 600 * window.devicePixelRatio || 1,
     parent: 'phaser-game',
-    scale: {
-        mode: Phaser.Scale.NONE,
-        width: 1000,
-        height: 800,
-    },
+    // scale: {
+    //     mode: Phaser.Scale.NONE,
+    //     width: 700 * window.devicePixelRatio || 1,
+    //     height: 600 * window.devicePixelRatio || 1,
+    // },
     backgroundColor: '#1e293b',
+    render: {
+        antialias: true,
+        pixelArt: false,
+        roundPixels: false,
+        clearBeforeRender: true
+    },
     scene: {
         preload: preload,
         create: create
@@ -225,21 +233,24 @@ socket.on('moveMade', ({ row, column, playerId }) => {
     const finalY = row * CELL_SIZE + CELL_SIZE/2;
     const x = column * CELL_SIZE + CELL_SIZE/2;
     
-    // Create disc with 3D effect
+    // Create disc with improved quality
     const discGroup = gameScene.add.container(x, 0);
-    const cellPadding = CELL_SIZE * 0.1; // Match the board's cell padding
+    const cellPadding = CELL_SIZE * 0.1;
     const discRadius = (CELL_SIZE / 2) - cellPadding;
     const shadowOffset = Math.max(1, CELL_SIZE * 0.01);
+    const segments = Math.max(32, Math.floor(CELL_SIZE / 2)); // More segments for smoother circles
     
-    // Disc shadow
-    const shadow = gameScene.add.circle(shadowOffset, shadowOffset, discRadius, 0x000000, 0.3);
-    
-    // Main disc
-    const disc = gameScene.add.circle(0, 0, discRadius, color);
-    
-    // Highlight for 3D effect
-    const highlightOffset = -Math.max(1, CELL_SIZE * 0.02);
-    const highlight = gameScene.add.circle(highlightOffset, highlightOffset, discRadius * 0.9, 0xffffff, 0.2);
+    // Create smoother circles
+    const shadow = gameScene.add.circle(shadowOffset, shadowOffset, discRadius, 0x000000, 0.3, segments);
+    const disc = gameScene.add.circle(0, 0, discRadius, color, 1, segments);
+    const highlight = gameScene.add.circle(
+        -Math.max(1, CELL_SIZE * 0.02),
+        -Math.max(1, CELL_SIZE * 0.02),
+        discRadius * 0.9,
+        0xffffff,
+        0.2,
+        segments
+    );
     
     discGroup.add([shadow, disc, highlight]);
     discs.push(discGroup);
@@ -382,7 +393,7 @@ function handleResize() {
         }
     } else {
         // Desktop sizing
-        gameWidth = Math.min(1000, width * 0.9);
+        gameWidth = Math.min(700, width * 0.9);
         gameHeight = (gameWidth * 6) / 7;
     }
     
@@ -419,8 +430,10 @@ function create() {
     graphics = this.add.graphics();
     discs = [];
     
-    // Initial resize
+    // Call handleResize after graphics is initialized
     handleResize();
+    
+    // Draw board after resize
     drawBoard();
     
     this.input.on('pointerdown', (pointer) => {
@@ -456,6 +469,8 @@ function create() {
 }
 
 function drawBoard() {
+    if (!graphics) return; // Guard clause to prevent drawing before graphics is ready
+    
     graphics.clear();
     
     const boardWidth = CELL_SIZE * 7;
@@ -463,40 +478,44 @@ function drawBoard() {
     
     // Calculate sizes proportional to cell size
     const lineThickness = Math.max(1, CELL_SIZE * 0.005);
-    const cellPadding = CELL_SIZE * 0.1; // Reduced padding for tighter fit
-    const shadowOffset = Math.max(1, CELL_SIZE * 0.01); // Proportional shadow offset
+    const cellPadding = CELL_SIZE * 0.1;
+    const shadowOffset = Math.max(1, CELL_SIZE * 0.01);
     
-    // Draw board shadow
+    // Use higher quality for circle drawing
+    const segments = Math.max(32, Math.floor(CELL_SIZE / 2));
+    
+    // Draw board shadow with proper line style
+    graphics.lineStyle(lineThickness, 0x1e293b);
     graphics.fillStyle(0x0f172a);
     graphics.fillRect(shadowOffset, shadowOffset, boardWidth, boardHeight);
     
     // Draw main board
-    graphics.lineStyle(lineThickness, 0x1e293b);
     graphics.fillStyle(0x1e293b);
     graphics.fillRect(0, 0, boardWidth, boardHeight);
     
-    // Draw cells with improved 3D effect
+    // Draw cells
     for (let row = 0; row < 6; row++) {
         for (let col = 0; col < 7; col++) {
             const x = col * CELL_SIZE;
             const y = row * CELL_SIZE;
             const radius = (CELL_SIZE / 2) - cellPadding;
             
-            // Cell shadow
+            // Draw cell shadow
             graphics.fillStyle(0x0f172a);
             graphics.fillCircle(
                 x + CELL_SIZE/2 + shadowOffset,
                 y + CELL_SIZE/2 + shadowOffset,
-                radius
+                radius,
+                segments
             );
             
-            // Main cell
+            // Draw cell
             graphics.fillStyle(0x334155);
-            graphics.fillCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, radius);
+            graphics.fillCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, radius, segments);
             
-            // Cell inner shadow
+            // Draw cell border
             graphics.lineStyle(lineThickness, 0x1e293b);
-            graphics.strokeCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, radius);
+            graphics.strokeCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, radius, segments);
         }
     }
 }
