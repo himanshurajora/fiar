@@ -9,6 +9,7 @@ class VoiceChat {
         this.gainNode = null;
         this.isTalking = false;
         this.isConnected = false;
+        this.isMuted = true; // Start muted by default
         
         // UI Elements
         this.voiceChatStatus = document.getElementById('voiceChatStatus');
@@ -52,7 +53,19 @@ class VoiceChat {
             if (this.stream) {
                 this.stream.getTracks().forEach(track => track.stop());
             }
-            this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.stream = await navigator.mediaDevices.getUserMedia({
+                video: false,
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: false
+                }
+            });
+            
+            // Mute the audio tracks by default
+            this.stream.getAudioTracks().forEach(track => {
+                track.enabled = false; // Start muted
+            });
             
             // Set up audio context and gain node
             if (this.audioContext) {
@@ -75,6 +88,15 @@ class VoiceChat {
                 this.showError();
             });
             
+            // Listen for mute/unmute events from other peer
+            this.socket.on('peerAudioStateChanged', ({ isMuted, peerId }) => {
+                if (peerId !== this.peer.id) {
+                    const remoteAudio = document.getElementById('remoteAudio');
+                    if (remoteAudio) {
+                        remoteAudio.muted = isMuted;
+                    }
+                }
+            });
         } catch (error) {
             console.error('Error initializing voice chat:', error);
             this.showError();
@@ -178,19 +200,28 @@ class VoiceChat {
     toggleMic() {
         if (!this.isConnected) return;
         
-        this.isTalking = !this.isTalking;
+        this.isMuted = !this.isMuted;
         
         // Toggle audio track enabled state
         if (this.stream) {
-            const audioTrack = this.stream.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = this.isTalking;
-            }
+            this.stream.getAudioTracks().forEach(track => {
+                track.enabled = !this.isMuted;
+            });
         }
         
         // Update gain node value
-        this.gainNode.gain.value = this.isTalking ? 1 : 0;
-        this.updateMicUI(this.isTalking);
+        if (this.gainNode) {
+            this.gainNode.gain.value = this.isMuted ? 0 : 1;
+        }
+
+        // Emit the audio state change to other peer
+        this.socket.emit('audioStateChanged', {
+            isMuted: this.isMuted,
+            room: currentRoom,
+            peerId: this.peer.id
+        });
+        
+        this.updateMicUI(!this.isMuted);
     }
     
     updateMicUI(isOn) {

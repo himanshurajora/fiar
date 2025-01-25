@@ -192,6 +192,12 @@ io.on('connection', (socket) => {
             emitActiveRooms();
         }
     });
+
+    // Add this with your other socket event handlers
+    socket.on('audioStateChanged', ({ isMuted, room, peerId }) => {
+        // Broadcast the audio state change to all clients in the room
+        socket.to(room).emit('peerAudioStateChanged', { isMuted, peerId });
+    });
 });
 
 function checkWin(board, row, col, player) {

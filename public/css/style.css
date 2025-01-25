@@ -85,3 +85,64 @@ input {
     font-weight: bold;
     color: #1a73e8;
 } 
+
+/* Game container improvements */
+#gameContainer {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #1e293b;
+}
+
+#phaser-game {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0 auto;
+}
+
+#phaser-game canvas {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+}
+
+/* Voice chat controls positioning */
+#voiceChatStatus {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    z-index: 50;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    #gameContainer {
+        padding: 10px;
+    }
+    
+    #voiceChatStatus {
+        bottom: 0.5rem;
+        right: 0.5rem;
+        transform: scale(1);
+        transform-origin: bottom right;
+    }
+    
+    #playerTurn {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Remove any other canvas styles that might interfere */
+canvas {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+} 

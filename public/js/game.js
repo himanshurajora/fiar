@@ -61,9 +61,9 @@ const config = {
     type: Phaser.AUTO,
     parent: 'phaser-game',
     scale: {
-        mode: Phaser.Scale.NONE, // We'll handle scaling manually
-        width: 700,
-        height: 600,
+        mode: Phaser.Scale.NONE,
+        width: 1000,
+        height: 800,
     },
     backgroundColor: '#1e293b',
     scene: {
@@ -227,15 +227,19 @@ socket.on('moveMade', ({ row, column, playerId }) => {
     
     // Create disc with 3D effect
     const discGroup = gameScene.add.container(x, 0);
+    const cellPadding = CELL_SIZE * 0.1; // Match the board's cell padding
+    const discRadius = (CELL_SIZE / 2) - cellPadding;
+    const shadowOffset = Math.max(1, CELL_SIZE * 0.01);
     
     // Disc shadow
-    const shadow = gameScene.add.circle(3, 3, CELL_SIZE/2 - 12, 0x000000, 0.3);
+    const shadow = gameScene.add.circle(shadowOffset, shadowOffset, discRadius, 0x000000, 0.3);
     
     // Main disc
-    const disc = gameScene.add.circle(0, 0, CELL_SIZE/2 - 12, color);
+    const disc = gameScene.add.circle(0, 0, discRadius, color);
     
     // Highlight for 3D effect
-    const highlight = gameScene.add.circle(-8, -8, CELL_SIZE/2 - 20, 0xffffff, 0.3);
+    const highlightOffset = -Math.max(1, CELL_SIZE * 0.02);
+    const highlight = gameScene.add.circle(highlightOffset, highlightOffset, discRadius * 0.9, 0xffffff, 0.2);
     
     discGroup.add([shadow, disc, highlight]);
     discs.push(discGroup);
@@ -249,12 +253,7 @@ socket.on('moveMade', ({ row, column, playerId }) => {
         y: finalY,
         duration: 500,
         ease: 'Bounce.easeOut',
-        onUpdate: () => {
-            // Rotate slightly during fall
-            discGroup.rotation += 0.01;
-        },
         onComplete: () => {
-            // Unlock moves after animation completes
             isMoveLocked = false;
         }
     });
@@ -362,33 +361,52 @@ function preload() {
     // No assets to preload
 }
 
-// Add resize handler
+// Update the resize handler
 function handleResize() {
     if (!game) return;
 
     const width = window.innerWidth;
-    const gameWidth = width > 1000 ? 800 : Math.min(700, width * 0.95);
-    const scale = gameWidth / 700; // Base width is 700
-    const gameHeight = 600 * scale;
-
+    const height = window.innerHeight;
+    
+    let gameWidth, gameHeight;
+    
+    if (width <= 768) { // Mobile devices
+        // Use full width on mobile with small padding
+        gameWidth = width - 5; // 10px padding on each side
+        gameHeight = (gameWidth * 6) / 7; // Maintain 7:6 aspect ratio
+        
+        // Check if height exceeds screen height
+        if (gameHeight > height * 0.8) {
+            gameHeight = height * 0.8;
+            gameWidth = (gameHeight * 7) / 6;
+        }
+    } else {
+        // Desktop sizing
+        gameWidth = Math.min(1000, width * 0.9);
+        gameHeight = (gameWidth * 6) / 7;
+    }
+    
     // Update game size
     game.scale.resize(gameWidth, gameHeight);
     
-    // Update CELL_SIZE based on scale
-    CELL_SIZE = Math.floor(100 * scale);
+    // Update CELL_SIZE based on new dimensions
+    CELL_SIZE = gameWidth / 7;
     
-    // Redraw board with new size
+    // Force redraw of the board
     if (graphics) {
         drawBoard();
         
         // Reposition existing discs
         discs.forEach(disc => {
-            const col = Math.floor(disc.x / (100 * disc.scaleX)); // Get original column
-            const row = Math.floor(disc.y / (100 * disc.scaleX)); // Get original row
+            const col = Math.floor(disc.x / CELL_SIZE);
+            const row = Math.floor(disc.y / CELL_SIZE);
             
-            // Update position with new scale
+            const scale = CELL_SIZE / 100;
             disc.setScale(scale);
-            disc.setPosition(col * CELL_SIZE + CELL_SIZE/2, row * CELL_SIZE + CELL_SIZE/2);
+            disc.setPosition(
+                col * CELL_SIZE + CELL_SIZE/2,
+                row * CELL_SIZE + CELL_SIZE/2
+            );
         });
     }
 }
@@ -443,32 +461,42 @@ function drawBoard() {
     const boardWidth = CELL_SIZE * 7;
     const boardHeight = CELL_SIZE * 6;
     
+    // Calculate sizes proportional to cell size
+    const lineThickness = Math.max(1, CELL_SIZE * 0.005);
+    const cellPadding = CELL_SIZE * 0.1; // Reduced padding for tighter fit
+    const shadowOffset = Math.max(1, CELL_SIZE * 0.01); // Proportional shadow offset
+    
     // Draw board shadow
     graphics.fillStyle(0x0f172a);
-    graphics.fillRect(10, 10, boardWidth, boardHeight);
+    graphics.fillRect(shadowOffset, shadowOffset, boardWidth, boardHeight);
     
     // Draw main board
-    graphics.lineStyle(2, 0x1e293b);
+    graphics.lineStyle(lineThickness, 0x1e293b);
     graphics.fillStyle(0x1e293b);
     graphics.fillRect(0, 0, boardWidth, boardHeight);
     
-    // Draw cells with 3D effect
+    // Draw cells with improved 3D effect
     for (let row = 0; row < 6; row++) {
         for (let col = 0; col < 7; col++) {
             const x = col * CELL_SIZE;
             const y = row * CELL_SIZE;
+            const radius = (CELL_SIZE / 2) - cellPadding;
             
             // Cell shadow
             graphics.fillStyle(0x0f172a);
-            graphics.fillCircle(x + CELL_SIZE/2 + 3, y + CELL_SIZE/2 + 3, CELL_SIZE/2 - 5);
+            graphics.fillCircle(
+                x + CELL_SIZE/2 + shadowOffset,
+                y + CELL_SIZE/2 + shadowOffset,
+                radius
+            );
             
             // Main cell
             graphics.fillStyle(0x334155);
-            graphics.fillCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE/2 - 5);
+            graphics.fillCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, radius);
             
             // Cell inner shadow
-            graphics.lineStyle(2, 0x1e293b);
-            graphics.strokeCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, CELL_SIZE/2 - 8);
+            graphics.lineStyle(lineThickness, 0x1e293b);
+            graphics.strokeCircle(x + CELL_SIZE/2, y + CELL_SIZE/2, radius);
         }
     }
 }
@@ -681,4 +709,11 @@ window.addEventListener('beforeunload', () => {
     if (currentRoom) {
         socket.emit('leaveRoom', currentRoom);
     }
-}); 
+});
+
+// Add a function to handle the mute/unmute button click
+function handleVoiceChatToggle() {
+    if (voiceChat) {
+        voiceChat.toggleMic();
+    }
+} 
